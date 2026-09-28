@@ -64,8 +64,8 @@ describe('analyze', () => {
 
   it('matches the known values on the demo tree', () => {
     const p = analyze(loadTree());
-    expect(p.bbox).toEqual({ x0: 17, y0: 16, x1: 133, y1: 149 });
-    expect(p.pinY).toBe(124);
+    expect(p.bbox).toEqual({ x0: 8, y0: 18, x1: 121, y1: 157 });
+    expect(p.pinY).toBe(130);
     expect(p.clusters.length).toBe(8);
   });
 });

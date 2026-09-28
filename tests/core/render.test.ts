@@ -33,7 +33,7 @@ describe('renderFrames', () => {
   it('returns N frames of the source size, frame 0 identical', () => {
     const r = run({ strength: 2, frames: 8, seed: 1 });
     expect(r.frames.length).toBe(8);
-    expect(r.frames[0].width).toBe(150);
+    expect(r.frames[0].width).toBe(128);
     expect(imagesEqual(r.frames[0], r.img)).toBe(true);
   });
 

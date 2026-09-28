@@ -1,8 +1,8 @@
 """Procedural pixel-art tree (original art for the Pixel Wind demo, CC0).
 
-Canopy = overlapping leaf clumps with jagged edges, lit from the top-left,
-drawn top-to-bottom so lower clumps overlap the ones behind them. Trunk and a
-few branches are drawn first and peek through the gaps.
+Style: a canopy built from hundreds of small stamped leaves, lit from above
+(yellow-green crown fading to deep teal underneath, dark interior showing the
+branches), a twisted warm-brown trunk, roots spreading over a grassy mound.
 
 usage: python tree.py SEED WIDTH HEIGHT OUT.png
 """
@@ -11,121 +11,174 @@ import sys
 import numpy as np
 from PIL import Image
 
-LEAF = ["#1b2f45", "#224a55", "#2f6b56", "#3f8c4f", "#62ad4a", "#96cf4f", "#d4ec7a"]
-BARK = ["#1d1730", "#35284a", "#54395a", "#7a5566"]
+
+def ramp(*hexes):
+    return [tuple(int(h[i:i + 2], 16) for i in (1, 3, 5)) for h in hexes]
 
 
-def hexc(s):
-    return tuple(int(s[i:i + 2], 16) for i in (1, 3, 5))
+LEAF = ramp("#10292f", "#173f45", "#1f5b55", "#2a7a50", "#4f9c3a", "#7fbf35", "#aee045", "#d8f46a")
+BARK = ramp("#321814", "#5a2b20", "#86442a", "#b06434", "#d48a44")
+GRASS = ramp("#173f47", "#1f6160", "#2a8a75", "#47b98e", "#80e2ae")
+FLOWER = ramp("#e59bbd", "#fff0f6")
+
+# leaf stamps: h = highlight, b = body, s = shadow edge
+LEAVES = [
+    ["  hh", " hbb", "hbbs", "bbs ", "bs  "],
+    [" hh ", "hbbh", "bbbb", "sbbs", " ss "],
+    ["hhb", "bbb", "bbs", "ss "],
+    [" hb ", "hbbb", "bbbs", " bs "],
+]
+BLADES = [["h", "b", "s"], [" h", "hb", "bs"], ["h ", "bh", "sb"], ["h", "b"]]
 
 
-LEAF = [hexc(c) for c in LEAF]
-BARK = [hexc(c) for c in BARK]
+class Canvas:
+    def __init__(self, W, H):
+        self.W, self.H = W, H
+        self.rgb = np.zeros((H, W, 3), np.uint8)
+        self.op = np.zeros((H, W), bool)
+
+    def put(self, x, y, c):
+        x, y = int(round(x)), int(round(y))
+        if 0 <= x < self.W and 0 <= y < self.H:
+            self.rgb[y, x] = c
+            self.op[y, x] = True
+
+    def stamp(self, shape, x, y, pal, t):
+        for j, row in enumerate(shape):
+            for i, ch in enumerate(row):
+                if ch == " ":
+                    continue
+                k = t + 1 if ch == "h" else t - 1 if ch == "s" else t
+                self.put(x + i, y + j, pal[max(0, min(len(pal) - 1, k))])
 
 
-def smooth_noise(rng, w, h, period):
-    """Blocky value noise at roughly `period` px, bilinear, about 0..1."""
-    gw, gh = w // period + 2, h // period + 2
-    g = rng.random((gh, gw))
-    ys, xs = np.mgrid[0:h, 0:w] / period
-    x0, y0 = xs.astype(int), ys.astype(int)
-    fx, fy = xs - x0, ys - y0
-    a = g[y0, x0] * (1 - fx) + g[y0, x0 + 1] * fx
-    b = g[y0 + 1, x0] * (1 - fx) + g[y0 + 1, x0 + 1] * fx
-    return a * (1 - fy) + b * fy
-
-
-def line(canvas, mask, x0, y0, x1, y1, w0, w1, tone_fn):
-    n = int(max(abs(x1 - x0), abs(y1 - y0))) + 1
-    for i in range(n):
-        t = i / max(1, n - 1)
-        x, y, w = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, w0 + (w1 - w0) * t
-        for dx in range(int(-w / 2) - 1, int(w / 2) + 2):
-            px, py = int(round(x + dx)), int(round(y))
-            if 0 <= px < canvas.shape[1] and 0 <= py < canvas.shape[0] and abs(px - x) <= w / 2:
-                canvas[py, px] = tone_fn((px - x) / max(w / 2, 1))
-                mask[py, px] = True
+def strand(cv, pts, w0, w1, light=-1):
+    """Thick tapered stroke along a polyline, shaded across its width."""
+    segs = list(zip(pts[:-1], pts[1:]))
+    total = sum(np.hypot(b[0] - a[0], b[1] - a[1]) for a, b in segs) or 1
+    done = 0.0
+    for (x0, y0), (x1, y1) in segs:
+        ln = np.hypot(x1 - x0, y1 - y0)
+        n = int(ln * 2) + 1
+        nx, ny = -(y1 - y0) / (ln or 1), (x1 - x0) / (ln or 1)
+        for i in range(n):
+            t = i / n
+            f = (done + ln * t) / total
+            w = w0 + (w1 - w0) * f
+            cx, cy = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
+            for s in np.arange(-w / 2, w / 2 + 0.01, 0.5):
+                u = s / max(w / 2, 0.5) * light          # -1 lit side .. 1 shade side
+                k = 4 if u < -0.6 else 3 if u < -0.1 else 2 if u < 0.5 else 1
+                cv.put(cx + nx * s, cy + ny * s, BARK[k])
+        done += ln
+    return cv
 
 
 def make_tree(seed, W, H):
     rng = np.random.default_rng(seed)
-    img = np.zeros((H, W, 3), np.uint8)
-    op = np.zeros((H, W), bool)
-    cx = W / 2 + rng.uniform(-2, 2)
+    cv = Canvas(W, H)
+    cx = W / 2
+    ground = H - H * 0.09
+    mound_rx, mound_ry = W * 0.44, H * 0.075
+    can_top, can_bot = H * 0.08, H * 0.71
+    can_cy = (can_top + can_bot) / 2
+    can_rx, can_ry = W * 0.39, (can_bot - can_top) / 2 * 0.86
 
-    # canopy ellipse
-    rmax = 0.13 * W
-    crx, cry = W * 0.5 - rmax - 3, H * 0.40 - rmax * 0.5
-    ccy = cry + rmax + 2
-    base_y = H - 1
-    trunk_top = ccy + cry * 0.2
-
-    def bark(u):  # u in [-1, 1] across the trunk, lit from the left
-        return BARK[3] if u < -0.45 else BARK[2] if u < 0.2 else BARK[1] if u < 0.7 else BARK[0]
-
-    # trunk + root flare
-    line(img, op, cx, base_y, cx + rng.uniform(-2, 2), trunk_top, W * 0.11, W * 0.06, bark)
-    for s in (-1, 1):
-        line(img, op, cx + s * W * 0.03, base_y, cx + s * W * 0.09, base_y, 3, 2, bark)
-    # branches toward the canopy
-    for _ in range(5):
-        ang = rng.uniform(-2.4, -0.7)
-        ln = rng.uniform(0.45, 0.8) * crx
-        sx, sy = cx, trunk_top + rng.uniform(0, H * 0.08)
-        line(img, op, sx, sy, sx + np.cos(ang) * ln, sy + np.sin(ang) * ln * 0.8, W * 0.035, 1.5, bark)
-
-    # clumps: sample centres inside the canopy ellipse
-    clumps = []
-    tries = 0
-    while len(clumps) < 60 and tries < 6000:
-        tries += 1
-        ang, rad = rng.uniform(0, 2 * np.pi), np.sqrt(rng.random())
-        x = cx + np.cos(ang) * rad * crx * 0.86
-        y = ccy + np.sin(ang) * rad * cry * 0.86
-        r = rng.uniform(0.09, 0.13) * W * (1.0 - 0.2 * rad)
-        if all(np.hypot(x - a, y - b) > 0.7 * (r + c) for a, b, c, *_ in clumps):
-            clumps.append((x, y, r, rng.uniform(0, 2 * np.pi), rng.integers(11, 15)))
-    clumps.sort(key=lambda c: c[1])  # top first; lower clumps overlap
-
-    leafn = smooth_noise(rng, W, H, 3)
     yy, xx = np.mgrid[0:H, 0:W].astype(float)
-    lx, ly = -0.62, -0.78
-    top, bot = ccy - cry, ccy + cry
-    for x, y, r, ph, k in clumps:
-        dx, dy = xx - x, yy - y
-        theta = np.arctan2(dy, dx)
-        edge = r * (1 + 0.08 * np.sin(k * theta + ph) + 0.05 * np.sin(2.3 * k * theta + 2 * ph)) + 1.6 * (leafn - 0.5)
-        d = np.hypot(dx, dy)
-        inside = d <= edge
-        if not inside.any():
-            continue
-        lam = -(dx * lx + dy * ly) / np.maximum(edge, 1)          # -1 .. 1
-        height = 1 - np.clip((yy - top) / (bot - top), 0, 1)      # 1 at top
-        t = 2.1 + 1.8 * lam + 1.5 * height + 1.2 * (leafn - 0.5)
-        rim = inside & (d > edge - 1.6) & (lam < 0.1)             # dark separation on the shadow side
-        t = np.where(rim, np.minimum(t, 0.6), t)
-        tone = np.clip(np.round(t), 0, 5).astype(int)
-        for i in range(6):
-            m = inside & (tone == i)
-            img[m] = LEAF[i]
-        op |= inside
 
-    # sparse highlight flecks on lit upper clumps
-    lit = op & (img == np.array(LEAF[5])).all(axis=2)
-    cand = np.argwhere(lit)
-    for py, px in cand[rng.choice(len(cand), size=min(len(cand), W // 5), replace=False)]:
-        img[py, px] = LEAF[6]
+    # --- grassy mound, back half
+    def mound(front):
+        for _ in range(int(W * H * 0.05)):
+            x = cx + rng.uniform(-1, 1) * mound_rx
+            dy = mound_ry * np.sqrt(max(0, 1 - ((x - cx) / mound_rx) ** 2))
+            y = ground + rng.uniform(-dy, dy)
+            is_front = y > ground - 1
+            if is_front != front:
+                continue
+            depth = (y - (ground - dy)) / max(2 * dy, 1)        # 0 back .. 1 front
+            t = int(np.clip(round(0.8 + 2.6 * depth + rng.normal(0, 0.3)), 1, 3))
+            cv.stamp(BLADES[rng.integers(len(BLADES))], x, y - 2, GRASS, t)
 
-    # silhouette outline on the shadow side
-    pad = np.pad(op, 1)
-    edge = op & ~(pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:])
-    shade = (xx - cx) * 0.4 + (yy - ccy)
-    out = edge & (shade > -cry * 0.15) & (yy < trunk_top)
-    img[out] = LEAF[0]
+    mound(front=False)
+
+    # --- trunk: two intertwined strands + branches
+    top_y = can_cy + can_ry * 0.35
+    for ph in (0.0, np.pi):
+        pts = [(cx + np.sin(t * 3.6 + ph + seed) * W * 0.05 + (t - 0.5) * W * 0.03,
+                ground - 2 - t * (ground - 2 - top_y)) for t in np.linspace(0, 1, 12)]
+        strand(cv, pts, W * 0.09, W * 0.045)
+    for k in range(5):
+        side = -1 if k % 2 else 1
+        sx, sy = cx + rng.uniform(-2, 2), top_y + rng.uniform(0, H * 0.08)
+        ex = cx + side * rng.uniform(0.35, 0.7) * can_rx
+        ey = sy - rng.uniform(0.15, 0.45) * can_ry
+        mid = ((sx + ex) / 2 + side * rng.uniform(0, 4), (sy + ey) / 2 + rng.uniform(2, 6))
+        strand(cv, [(sx, sy), mid, (ex, ey)], W * 0.035, 1.2, light=-side)
+
+    # --- canopy mask: big dome + lumps, notched underneath
+    mask = ((xx - cx) / can_rx) ** 2 + ((yy - can_cy) / can_ry) ** 2 <= 1
+    for _ in range(9):
+        a = rng.uniform(np.pi * 0.95, np.pi * 2.05)
+        bx, by = cx + np.cos(a) * can_rx * 0.75, can_cy + np.sin(a) * can_ry * 0.7
+        r = rng.uniform(0.09, 0.13) * W
+        mask |= (xx - bx) ** 2 + (yy - by) ** 2 <= r * r
+    notch = ((xx - cx) / (can_rx * 0.45)) ** 2 + ((yy - can_bot) / (can_ry * 0.35)) ** 2 <= 1
+    mask &= ~notch
+    mys, mxs = np.nonzero(mask)
+    ctop, cbot = mys.min(), mys.max()
+
+    # dark interior first, so gaps between leaves read as depth
+    inner = mask & (((xx - cx) / can_rx) ** 2 + ((yy - can_cy) / can_ry) ** 2 <= 0.85)
+    cv.rgb[inner & ~cv.op] = LEAF[0]
+    cv.op |= inner
+
+    # --- leaves
+    leaves = []
+    step = 3.3
+    for y in np.arange(ctop - 2, cbot + 2, step):
+        for x in np.arange(mxs.min() - 2, mxs.max() + 2, step):
+            px, py = x + rng.uniform(-1.2, 1.2), y + rng.uniform(-1.2, 1.2)
+            ix, iy = int(px), int(py)
+            if not (0 <= ix < W and 0 <= iy < H and mask[iy, ix]):
+                continue
+            height = 1 - (py - ctop) / max(1, cbot - ctop)          # 1 at the crown
+            side = (px - cx) / can_rx
+            lam = -0.18 * side + 1.0 * height                          # light from above, a touch from the left
+            centre = max(0, 1 - abs(side) * 1.4) * max(0, 0.75 - height)
+            if rng.random() < 0.55 * centre:                           # hollow, shaded underside
+                continue
+            t = round(1.0 + 5.2 * lam + rng.normal(0, 0.35))
+            leaves.append((int(np.clip(t, 1, 6)), rng.random(), px, py))
+    leaves.sort()                                                      # bright leaves land on top
+    for t, _, px, py in leaves:
+        shape = LEAVES[rng.integers(len(LEAVES))]
+        if rng.random() < 0.5:
+            shape = [row[::-1] for row in shape]
+        cv.stamp(shape, px - 1, py - 1, LEAF, t)
+
+    # --- front grass, then roots over it, then a few tufts in front of the roots
+    mound(front=True)
+    for k in range(6):
+        side = -1 if k % 2 else 1
+        sx = cx + side * rng.uniform(1, 4)
+        ex = cx + side * rng.uniform(0.35, 0.8) * mound_rx
+        ey = ground + rng.uniform(-mound_ry * 0.3, mound_ry * 0.6)
+        strand(cv, [(sx, ground - 6), (sx + side * 4, ground - 2), (ex, ey)], W * 0.035, 1.0, light=-side)
+    for _ in range(int(W * 0.35)):
+        x = cx + rng.uniform(-1, 1) * mound_rx * 0.9
+        dy = mound_ry * np.sqrt(max(0, 1 - ((x - cx) / mound_rx) ** 2))
+        cv.stamp(BLADES[rng.integers(len(BLADES))], x, ground + rng.uniform(0, dy) - 1, GRASS, 3)
+
+    # --- a few blossoms on the crown edge
+    edge = mask & ~np.roll(mask, 2, axis=0)
+    cand = np.argwhere(edge & (yy < can_cy))
+    for py, px in cand[rng.choice(len(cand), size=min(len(cand), 5), replace=False)]:
+        for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
+            cv.put(px + dx, py + dy - 1, FLOWER[1] if dx == dy == 0 else FLOWER[0])
 
     rgba = np.zeros((H, W, 4), np.uint8)
-    rgba[..., :3] = img
-    rgba[..., 3] = np.where(op, 255, 0)
+    rgba[..., :3] = cv.rgb
+    rgba[..., 3] = np.where(cv.op, 255, 0)
     return rgba
 
 
