@@ -6,7 +6,7 @@ Turn any pixel-art sprite into a seamless wind sway loop — **no shimmer, no ne
 
 **Try it:** https://pixel-wind.vercel.app
 
-On the demo tree, a typical rotation sway changes **46,538 pixels per loop**; Pixel Wind changes **12,584** — about 4× less flicker for the same breeze.
+On the demo tree, a typical rotation sway changes **48,406 pixels per loop**; Pixel Wind changes **7,732** — about 6× less flicker for the same breeze.
 
 ## Why it doesn't shimmer
 
@@ -34,4 +34,8 @@ GIF · sprite sheet PNG + Aseprite-style JSON (`wind` tag) · ZIP of frames
     npm run dev
     npm test
 
-MIT © getcakedieyoungx
+## Licence
+
+Code: MIT © getcakedieyoungx.
+
+**The demo tree is © 2026 yalpo — all rights reserved** and is not covered by the MIT licence; see [ASSETS-LICENSE.md](ASSETS-LICENSE.md). Use your own sprites with the tool freely.

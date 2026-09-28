@@ -58,19 +58,15 @@ function cloud(w: number, h: number, seed: number): HTMLCanvasElement {
 function hills(ctx: CanvasRenderingContext2D, W: number, base: number, amp: number, colour: string, k: number): void {
   ctx.fillStyle = colour;
   for (let x = 0; x < W; x++) {
-    const h = Math.round(amp * (0.6 + 0.4 * Math.sin(x * 0.021 * k + k) + 0.25 * Math.sin(x * 0.057 * k + 2 * k)));
+    const h = Math.max(0, Math.round(amp * (0.6 + 0.4 * Math.sin(x * 0.021 * k + k) + 0.25 * Math.sin(x * 0.057 * k + 2 * k))));
     ctx.fillRect(x, base - h, 1, h + 1);
   }
 }
 
 export async function startHero(canvas: HTMLCanvasElement): Promise<void> {
-  const [big, mid, a, b, grass] = await Promise.all(
-    ['/art/tree-big.png', '/demo-sprite.png', '/art/tree-a.png', '/art/tree-b.png', '/art/grass.png'].map(load),
-  );
-  const bigF = sway(big, 11, 2);
-  const midF = sway(mid, 15, 2);
-  const aF = sway(a, 12, 2);
-  const bF = sway(b, 13, 2);
+  // the hero tree is yalpo's own art (© all rights reserved), shown as the demo
+  const [tree, grass] = await Promise.all(['/demo-sprite.png', '/art/grass.png'].map(load));
+  const treeF = sway(tree, 11, 2);
   const grassF = sway(grass, 14, 1);
   const clouds = [cloud(120, 44, 1), cloud(160, 56, 2), cloud(90, 34, 3)];
 
@@ -82,8 +78,10 @@ export async function startHero(canvas: HTMLCanvasElement): Promise<void> {
   function layout(): void {
     const vw = canvas.parentElement!.clientWidth;
     const vh = canvas.parentElement!.clientHeight;
-    // pick the zoom from the width so phones get a wide enough scene
-    const s = Math.max(2, Math.min(6, Math.round(vw / 480)));
+    // zoom so the tree fills about two thirds of the height, but the scene stays wider than the tree
+    const byHeight = Math.round((vh * 0.64) / tree.height);
+    const byWidth = Math.floor(vw / (tree.width * 1.25));
+    const s = Math.max(2, Math.min(8, byHeight, byWidth));
     W = Math.ceil(vw / s);
     H = Math.ceil(vh / s);
     canvas.width = W;
@@ -103,6 +101,8 @@ export async function startHero(canvas: HTMLCanvasElement): Promise<void> {
       g.fillRect(0, y0, W, horizon - y0);
     });
     hills(g, W, horizon, H * 0.1, HILL_FAR, 1);
+    g.fillStyle = HILL_NEAR; // no gap between the far hills and the field
+    g.fillRect(0, horizon, W, 4);
     hills(g, W, horizon + 3, H * 0.05, HILL_NEAR, 1.7);
     g.fillStyle = GROUND[0];
     g.fillRect(0, horizon + 3, W, H);
@@ -128,14 +128,8 @@ export async function startHero(canvas: HTMLCanvasElement): Promise<void> {
 
     const f = tick % 8;
     const baseBack = horizon + 6;
-    const baseFront = H - 3;
+    const baseFront = H - 4;
     const narrow = W < 260;
-    const put = (fr: Frames, cx: number, base: number, phase: number) => {
-      const c = fr[(f + phase) % fr.length];
-      ctx.drawImage(c, Math.round(cx - c.width / 2), base - c.height);
-    };
-    if (!narrow) put(bF, W * 0.12, baseBack, 3);
-    put(aF, W * (narrow ? 0.18 : 0.3), baseBack, 5);
     for (let x = 0; x < W; x += grassF[0].width) ctx.drawImage(grassF[(f + 2) % 8], x, baseBack - grassF[0].height + 2);
     // scattered tufts across the field, fixed positions
     const field = H - baseBack;
@@ -144,8 +138,8 @@ export async function startHero(canvas: HTMLCanvasElement): Promise<void> {
       const y = baseBack + Math.round(field * (0.25 + ((i * 0.3819) % 1) * 0.5));
       ctx.drawImage(grassF[(f + i) % 8], 0, 0, 48, grassF[0].height, x, y - grassF[0].height, 48, grassF[0].height);
     }
-    if (narrow) put(midF, W * 0.6, baseFront, 0);
-    else put(bigF, W * 0.68, baseFront, 0);
+    const c = treeF[f];
+    ctx.drawImage(c, Math.round(W * (narrow ? 0.5 : 0.66) - c.width / 2), baseFront - c.height);
     for (let x = -30; x < W; x += grassF[0].width) ctx.drawImage(grassF[f], x, H - grassF[0].height);
   }
 

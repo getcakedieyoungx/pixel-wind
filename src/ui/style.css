@@ -143,3 +143,4 @@ footer {
   padding: 24px 16px 48px;
   font-size: 14px;
 }
+.drop .note { color: var(--meta); margin: 14px 0 0; font-size: 13px; }

@@ -3,6 +3,7 @@ import { ERRORS, generate, PixelWindError, type FrameCount, type GenerateResult,
 import { encodeGif, gifPalette, hasSemiTransparency } from '../export/gif';
 import { encodePng } from '../export/png';
 import { buildSheet, sheetJson } from '../export/sheet';
+import { stampMark } from '../export/watermark';
 import { buildZip } from '../export/zip';
 import '@fontsource/public-sans/400.css';
 import '@fontsource/public-sans/600.css';
@@ -19,7 +20,14 @@ const state = {
   seed: 20260813,
   pinY: undefined as number | undefined,
   result: null as GenerateResult | null,
+  /** the demo tree is © yalpo — its exports carry the mark */
+  isDemo: false,
 };
+
+function exportFrames(): RGBAImage[] {
+  const frames = state.result!.frames;
+  return state.isDemo ? frames.map((f) => stampMark(f)) : frames;
+}
 
 const viewCanvas = $<HTMLCanvasElement>('view');
 const view = new Player(viewCanvas);
@@ -96,9 +104,10 @@ function run(): void {
   }
 }
 
-async function load(file: Blob, name: string): Promise<void> {
+async function load(file: Blob, name: string, isDemo = false): Promise<void> {
   try {
     state.src = await decodeFile(file);
+    state.isDemo = isDemo;
     state.name = name.replace(/\.png$/i, '').replace(/[^\w-]+/g, '_') || 'sprite';
     state.pinY = undefined;
     state.result = null;
@@ -127,7 +136,7 @@ $<HTMLInputElement>('file').addEventListener('change', (e) => {
 });
 $('demo').addEventListener('click', async () => {
   const blob = await (await fetch('/demo-sprite.png')).blob();
-  void load(blob, 'demo');
+  void load(blob, 'demo', true);
 });
 
 // --- hero + "why it doesn't shimmer" side by side on the demo tree
@@ -191,18 +200,18 @@ viewCanvas.addEventListener('pointerup', (e) => {
 $('dlGif').addEventListener('click', () => {
   if (!state.result) return;
   try {
-    download(encodeGif(state.result.frames, { delayMs: 1000 / fps() }), `${state.name}_wind.gif`, 'image/gif');
+    download(encodeGif(exportFrames(), { delayMs: 1000 / fps() }), `${state.name}_wind.gif`, 'image/gif');
   } catch (e) {
     showError(e instanceof PixelWindError ? e.message : String(e));
   }
 });
 $('dlSheet').addEventListener('click', () => {
   if (!state.result) return;
-  const { frames } = state.result;
+  const frames = exportFrames();
   download(encodePng(buildSheet(frames)), `${state.name}_wind_sheet.png`, 'image/png');
   download(JSON.stringify(sheetJson(frames, fps(), state.name), null, 1), `${state.name}_wind_sheet.json`, 'application/json');
 });
 $('dlZip').addEventListener('click', () => {
   if (!state.result) return;
-  download(buildZip(state.result.frames, fps(), state.name), `${state.name}_wind.zip`, 'application/zip');
+  download(buildZip(exportFrames(), fps(), state.name), `${state.name}_wind.zip`, 'application/zip');
 });
