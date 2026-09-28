@@ -30,8 +30,12 @@ a { color: var(--head); }
   min-height: 420px;
   overflow: hidden;
   background: var(--bg-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 96px 0 56px;
 }
-#heroCanvas { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
+#heroCanvas { display: block; image-rendering: pixelated; }
 .top {
   position: absolute;
   inset: 0 0 auto 0;
