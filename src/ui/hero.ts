@@ -8,7 +8,7 @@ const FPS = 6;
  * else. Drawn at 1:1 into a small canvas and scaled by a whole number in CSS.
  */
 export async function startHero(canvas: HTMLCanvasElement): Promise<void> {
-  const tree = await decodeFile(await (await fetch('/demo-sprite.png')).blob());
+  const tree = await decodeFile(await (await fetch('demo-sprite.png')).blob());
   const frames = generate(tree, { strength: 2, frames: 8, seed: 11 }).frames.map((f) => {
     const c = document.createElement('canvas');
     c.width = f.width;

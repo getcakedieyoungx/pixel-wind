@@ -135,7 +135,7 @@ $<HTMLInputElement>('file').addEventListener('change', (e) => {
   if (f) void load(f, f.name);
 });
 $('demo').addEventListener('click', async () => {
-  const blob = await (await fetch('/demo-sprite.png')).blob();
+  const blob = await (await fetch('demo-sprite.png')).blob();
   void load(blob, 'demo', true);
 });
 
@@ -154,7 +154,7 @@ function changedPerLoop(frames: RGBAImage[]): number {
 }
 
 void (async () => {
-  const demo = await decodeFile(await (await fetch('/demo-sprite.png')).blob());
+  const demo = await decodeFile(await (await fetch('demo-sprite.png')).blob());
   const ours = generate(demo, { strength: 2, frames: 12, seed: 20260813 });
   const rot = rotateSway(demo, ours.params, 12);
   new Player($<HTMLCanvasElement>('howOurs')).setFrames(ours.frames, 8);
