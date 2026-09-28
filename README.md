@@ -4,7 +4,7 @@ Turn any pixel-art sprite into a seamless wind sway loop — **no shimmer, no ne
 
 ![Left: typical rotation sway. Right: Pixel Wind.](docs/media/compare.gif)
 
-**Try it:** <live URL>
+**Try it:** https://pixel-wind.vercel.app
 
 On the demo tree, a typical rotation sway changes **48,406 pixels per loop**; Pixel Wind changes **7,732** — about 6× less flicker for the same breeze.
 
