@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Pixel Wind</title>
+    <title>Pixel Wind — shimmer-free wind for pixel art</title>
     <meta
       name="description"
       content="Turn any pixel-art sprite into a seamless wind sway loop. No shimmer, no new colours. Runs in your browser."
@@ -11,49 +11,111 @@
     <link rel="stylesheet" href="/src/ui/style.css" />
   </head>
   <body>
-    <header>
-      <h1>Pixel Wind</h1>
-      <p class="tag">Any sprite → seamless wind loop. No shimmer, no new colours. Nothing leaves your browser.</p>
+    <header class="hero">
+      <canvas id="heroCanvas" aria-hidden="true"></canvas>
+      <nav class="top">
+        <a class="logo" href="#">Pixel Wind<span>Shimmer-free wind for pixel art</span></a>
+        <ul>
+          <li><a href="#try">Try it</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="https://github.com/getcakedieyoungx/pixel-wind">GitHub</a></li>
+        </ul>
+      </nav>
+      <p class="caption">Every leaf and blade in this scene is moved by Pixel Wind.</p>
     </header>
+
     <main>
-      <section id="drop" class="drop">
-        <p>Drop a PNG sprite here or <label class="pick">choose a file<input id="file" type="file" accept="image/png" hidden /></label></p>
-        <button id="demo" type="button">Try the demo sprite</button>
+      <section id="try">
+        <h2><span class="num">01</span> - Try it</h2>
+        <p class="lede">
+          Drop any PNG sprite and get a seamless wind loop. Your pixels, your palette, frame 1 untouched.
+          Nothing leaves your browser.
+        </p>
+
+        <div id="drop" class="drop">
+          <p>Drop a PNG sprite here or <label class="pick">choose a file<input id="file" type="file" accept="image/png" hidden /></label></p>
+          <button id="demo" type="button">Use the demo tree</button>
+        </div>
+        <p id="error" class="error" role="alert" hidden></p>
+
+        <div id="work" hidden>
+          <div class="stage">
+            <figure id="cmpFig" hidden>
+              <div class="well"><canvas id="cmp"></canvas></div>
+              <figcaption class="eyebrow">Typical rotation sway</figcaption>
+            </figure>
+            <figure>
+              <div class="well"><canvas id="view"></canvas></div>
+              <figcaption class="eyebrow">Pixel Wind</figcaption>
+            </figure>
+          </div>
+          <p class="hint">Drag on the sprite to move the red pin line. Everything below it stays still.</p>
+
+          <form id="controls">
+            <label><span class="eyebrow">Strength</span>
+              <select id="strength"><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option></select>
+            </label>
+            <label><span class="eyebrow">Frames</span>
+              <select id="frames"><option>6</option><option selected>8</option><option>12</option></select>
+            </label>
+            <label><span class="eyebrow">FPS</span> <input id="fps" type="number" min="1" max="24" value="6" /></label>
+            <button id="shuffle" type="button">Shuffle wind</button>
+            <label class="toggle"><input id="compare" type="checkbox" /> <span class="eyebrow">Compare</span></label>
+          </form>
+
+          <ul id="badges" class="badges"></ul>
+
+          <div class="exports">
+            <button id="dlGif" type="button">Download GIF</button>
+            <button id="dlSheet" type="button">Sprite sheet + JSON</button>
+            <button id="dlZip" type="button">ZIP</button>
+            <span id="exportNote" class="note"></span>
+          </div>
+        </div>
       </section>
-      <p id="error" class="error" role="alert" hidden></p>
-      <section id="work" hidden>
+
+      <section id="how">
+        <h2><span class="num">02</span> - Why it doesn't shimmer</h2>
         <div class="stage">
-          <figure id="cmpFig" hidden>
-            <canvas id="cmp"></canvas>
-            <figcaption>Typical rotation sway</figcaption>
+          <figure>
+            <div class="well"><canvas id="howRot"></canvas></div>
+            <figcaption class="eyebrow">Rotation sway · <span id="rotCount">25,258</span> px change per loop</figcaption>
           </figure>
           <figure>
-            <canvas id="view"></canvas>
-            <figcaption>Pixel Wind</figcaption>
+            <div class="well"><canvas id="howOurs"></canvas></div>
+            <figcaption class="eyebrow">Pixel Wind · <span id="oursCount">5,174</span> px change per loop</figcaption>
           </figure>
         </div>
-        <p class="hint">Drag on the sprite to move the pin line (red). Everything below it stays still.</p>
-        <form id="controls">
-          <label>Strength
-            <select id="strength"><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option></select>
-          </label>
-          <label>Frames
-            <select id="frames"><option>6</option><option selected>8</option><option>12</option></select>
-          </label>
-          <label>FPS <input id="fps" type="number" min="1" max="24" value="6" /></label>
-          <button id="shuffle" type="button">Shuffle wind</button>
-          <label class="toggle"><input id="compare" type="checkbox" /> Compare</label>
-        </form>
-        <ul id="badges" class="badges"></ul>
-        <div class="exports">
-          <button id="dlGif" type="button">GIF</button>
-          <button id="dlSheet" type="button">Sprite sheet + JSON</button>
-          <button id="dlZip" type="button">ZIP (frames + sheet)</button>
-          <span id="exportNote" class="note"></span>
-        </div>
+        <p>
+          Most wind shaders rotate or skew the sprite and round every pixel on its own, so the inside of the canopy
+          flickers. Pixel Wind moves whole leaf clumps by whole pixels instead. Every output pixel takes exactly one
+          pixel from your sprite:
+        </p>
+        <pre>dst(x, y) = src(x − dx, y − dy)</pre>
+        <p>Neighbouring clumps can move by different amounts without tearing seams, and no colour is ever invented.</p>
+      </section>
+
+      <section id="guarantees">
+        <h2><span class="num">03</span> - Checked on every export</h2>
+        <ol class="catalogue">
+          <li>Frame 1 is byte-identical to your sprite</li>
+          <li>No colours or transparency levels that aren't in your sprite</li>
+          <li>Everything below the pin line never moves</li>
+          <li>At most 1–3 px sideways and 1 px vertical</li>
+          <li>The last → first step is as smooth as every other step</li>
+        </ol>
+      </section>
+
+      <section id="export">
+        <h2><span class="num">04</span> - Take it into your engine</h2>
+        <p>GIF for sharing. Sprite sheet PNG with Aseprite-style JSON and a <code>wind</code> tag for Godot, Unity or Aseprite. ZIP of single frames.</p>
       </section>
     </main>
-    <footer><a href="https://github.com/getcakedieyoungx/pixel-wind">Source on GitHub</a> · MIT</footer>
+
+    <footer>
+      <span class="eyebrow">Pixel Wind · MIT · art in this page is original and CC0</span>
+      <a href="https://github.com/getcakedieyoungx/pixel-wind">Source on GitHub</a>
+    </footer>
     <script type="module" src="/src/ui/main.ts"></script>
   </body>
 </html>

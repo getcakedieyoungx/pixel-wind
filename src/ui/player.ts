@@ -2,7 +2,10 @@ import type { RGBAImage } from '../core';
 
 const MAX_VIEW = 480;
 
-/** Plays frames on a canvas at the largest integer zoom that fits, with an optional pin line. */
+/**
+ * Plays frames on a canvas at the largest integer zoom that fits its container
+ * (never CSS-scaled, so pixels stay square), with an optional pin line.
+ */
 export class Player {
   pinY: number | null = null;
   private bufs: HTMLCanvasElement[] = [];
@@ -10,14 +13,15 @@ export class Player {
   private zoom = 1;
   private timer = 0;
 
-  constructor(private canvas: HTMLCanvasElement) {}
+  constructor(private canvas: HTMLCanvasElement) {
+    let t = 0;
+    window.addEventListener('resize', () => {
+      clearTimeout(t);
+      t = window.setTimeout(() => this.fit(), 150);
+    });
+  }
 
   setFrames(frames: RGBAImage[], fps: number): void {
-    const w = frames[0].width;
-    const h = frames[0].height;
-    this.zoom = Math.max(1, Math.floor(Math.min(MAX_VIEW / w, MAX_VIEW / h)));
-    this.canvas.width = w * this.zoom;
-    this.canvas.height = h * this.zoom;
     this.bufs = frames.map((f) => {
       const c = document.createElement('canvas');
       c.width = f.width;
@@ -26,12 +30,22 @@ export class Player {
       return c;
     });
     this.idx = 0;
+    this.fit();
     this.stop();
-    this.draw();
     this.timer = window.setInterval(() => {
       this.idx = (this.idx + 1) % this.bufs.length;
       this.draw();
     }, 1000 / fps);
+  }
+
+  private fit(): void {
+    const b = this.bufs[0];
+    if (!b) return;
+    const avail = Math.min(MAX_VIEW, this.canvas.parentElement?.clientWidth || MAX_VIEW);
+    this.zoom = Math.max(1, Math.floor(Math.min(avail / b.width, MAX_VIEW / b.height)));
+    this.canvas.width = b.width * this.zoom;
+    this.canvas.height = b.height * this.zoom;
+    this.draw();
   }
 
   getZoom(): number {

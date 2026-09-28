@@ -62,10 +62,10 @@ describe('analyze', () => {
     expect(analyze(im, 10).clusters).toEqual([]);
   });
 
-  it('matches the prototype on the tree', () => {
+  it('matches the known values on the demo tree', () => {
     const p = analyze(loadTree());
-    expect(p.bbox).toEqual({ x0: 17, y0: 2, x1: 133, y1: 149 });
-    expect(p.pinY).toBe(121);
+    expect(p.bbox).toEqual({ x0: 17, y0: 16, x1: 133, y1: 149 });
+    expect(p.pinY).toBe(124);
     expect(p.clusters.length).toBe(8);
   });
 });

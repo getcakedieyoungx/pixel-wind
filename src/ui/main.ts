@@ -4,6 +4,10 @@ import { encodeGif, gifPalette, hasSemiTransparency } from '../export/gif';
 import { encodePng } from '../export/png';
 import { buildSheet, sheetJson } from '../export/sheet';
 import { buildZip } from '../export/zip';
+import '@fontsource/public-sans/400.css';
+import '@fontsource/public-sans/600.css';
+import '@fontsource/public-sans/800.css';
+import { startHero } from './hero';
 import { decodeFile, download } from './io';
 import { Player } from './player';
 
@@ -125,6 +129,30 @@ $('demo').addEventListener('click', async () => {
   const blob = await (await fetch('/demo-sprite.png')).blob();
   void load(blob, 'demo');
 });
+
+// --- hero + "why it doesn't shimmer" side by side on the demo tree
+void startHero($<HTMLCanvasElement>('heroCanvas'));
+
+function changedPerLoop(frames: RGBAImage[]): number {
+  let n = 0;
+  for (let k = 0; k < frames.length; k++) {
+    const a = frames[k].data;
+    const b = frames[(k + 1) % frames.length].data;
+    for (let i = 0; i < a.length; i += 4)
+      if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2] || a[i + 3] !== b[i + 3]) n++;
+  }
+  return n;
+}
+
+void (async () => {
+  const demo = await decodeFile(await (await fetch('/demo-sprite.png')).blob());
+  const ours = generate(demo, { strength: 2, frames: 12, seed: 20260813 });
+  const rot = rotateSway(demo, ours.params, 12);
+  new Player($<HTMLCanvasElement>('howOurs')).setFrames(ours.frames, 8);
+  new Player($<HTMLCanvasElement>('howRot')).setFrames(rot, 8);
+  $('oursCount').textContent = changedPerLoop(ours.frames).toLocaleString('en-US');
+  $('rotCount').textContent = changedPerLoop(rot).toLocaleString('en-US');
+})();
 
 // --- controls
 for (const id of ['strength', 'frames', 'fps', 'compare']) $(id).addEventListener('change', run);
