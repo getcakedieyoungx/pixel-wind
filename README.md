@@ -38,6 +38,10 @@ GIF · sprite sheet PNG + Aseprite-style JSON (`wind` tag) · ZIP of frames
 
 Pixel Wind is free. If it saved you some animation time, you can support more tools like it on [Patreon](https://www.patreon.com/monkeytax407).
 
+## Contact
+
+Questions, bug reports with a sprite, or collabs: [monkeytax407@gmail.com](mailto:monkeytax407@gmail.com)
+
 ## Licence
 
 Code: MIT © getcakedieyoungx.
