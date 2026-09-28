@@ -8,11 +8,16 @@ import { buildZip } from '../export/zip';
 import '@fontsource/public-sans/400.css';
 import '@fontsource/public-sans/600.css';
 import '@fontsource/public-sans/800.css';
+import { inject } from '@vercel/analytics';
 import { startHero } from './hero';
 import { decodeFile, download } from './io';
 import { Player } from './player';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+
+// page views only (no cookies, sprites never leave the browser); the script
+// is served by Vercel, so it is skipped on itch.io and localhost
+if (location.hostname.endsWith('.vercel.app')) inject();
 
 const state = {
   src: null as RGBAImage | null,
