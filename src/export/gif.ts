@@ -1,6 +1,11 @@
-import { GIFEncoder } from 'gifenc';
+import * as gifenc from 'gifenc';
 import type { RGBAImage } from '../core/image';
 import { ERRORS, PixelWindError } from '../core/types';
+
+// Bundlers resolve gifenc's ESM build; plain Node gets its CJS build, whose named
+// exports only appear on `default`.
+const GIFEncoder: typeof gifenc.GIFEncoder =
+  gifenc.GIFEncoder ?? (gifenc as unknown as { default: typeof gifenc }).default.GIFEncoder;
 
 export const GIF_MAX_COLOURS = 255;
 const ALPHA_THRESHOLD = 128;
