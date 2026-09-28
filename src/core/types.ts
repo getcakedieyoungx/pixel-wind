@@ -44,7 +44,7 @@ export const ERRORS = {
   NOT_PNG: 'Only PNG files are supported.',
   NO_OPAQUE: 'The sprite has no opaque pixels.',
   TOO_LARGE: 'Max 512×512 (plenty for pixel art).',
-  PIN_TOO_HIGH: 'Move the pin line up — nothing above it to animate.',
+  PIN_TOO_HIGH: 'Move the pin line down — nothing above it to animate.',
   TOO_MANY_COLORS: 'GIF supports max 255 colours + transparency. Use the sprite sheet or ZIP instead.',
   SEMI_TRANSPARENT: 'Semi-transparent pixels are thresholded at 50% in the GIF.',
 } as const;
